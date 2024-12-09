@@ -1,49 +1,27 @@
 <div class="app-container">
   <!-- Sidebar -->
   <div class="sidebar">
-    <div class="logo">
-      <img src="assets/trello-logo.svg" alt="Trello" />
+    <div class="workspace-header">
+      <div class="workspace-icon">K</div>
+      <div class="workspace-info">
+        <div class="workspace-title">Kanban Board</div>
+        <div class="workspace-type">Free Workspace</div>
+      </div>
     </div>
-    <div class="workspace">
-      <div class="workspace-header">
-        <div class="workspace-icon">Â</div>
-        <div class="workspace-info">
-          <div class="workspace-title">Área de trabalho do Trello</div>
-          <div class="workspace-type">Free</div>
-        </div>
+    
+    <div class="workspace-menu">
+      <div class="section-title">Workspace</div>
+      <div class="menu-item">
+        <i class="material-icons">dashboard</i>
+        <span>Boards</span>
       </div>
-      <div class="workspace-menu">
-        <div class="menu-item">
-          <i class="fas fa-th"></i>
-          <span>Boards</span>
-        </div>
-        <div class="menu-item">
-          <i class="fas fa-user"></i>
-          <span>Members</span>
-          <i class="fas fa-plus"></i>
-        </div>
-        <div class="menu-item">
-          <i class="fas fa-cog"></i>
-          <span>Workspace settings</span>
-        </div>
+      <div class="menu-item">
+        <i class="material-icons">people</i>
+        <span>Members</span>
       </div>
-      <div class="workspace-views">
-        <div class="section-title">Workspace views</div>
-        <div class="menu-item">
-          <i class="fas fa-table"></i>
-          <span>Table</span>
-        </div>
-        <div class="menu-item">
-          <i class="fas fa-calendar"></i>
-          <span>Calendar</span>
-        </div>
-      </div>
-      <div class="your-boards">
-        <div class="section-title">Your boards</div>
-        <div class="board-item active">
-          <div class="board-icon"></div>
-          <span>Kanban Quadro Modelo</span>
-        </div>
+      <div class="menu-item">
+        <i class="material-icons">settings</i>
+        <span>Settings</span>
       </div>
     </div>
   </div>
@@ -51,91 +29,68 @@
   <!-- Main Content -->
   <div class="main-content">
     <div class="board-header">
-      <h1>Kanban</h1>
+      <h1>{{ boardTitle }}</h1>
     </div>
-    
+
+    <!-- Board Container -->
     <div class="board-container">
-      <!-- Lists Container -->
-      <div class="lists-container">
-        <div class="lists-wrapper">
-          <div class="list" *ngFor="let list of lists">
+      <div class="board" cdkDropListGroup>
+        <!-- Lists Container -->
+        <div class="lists-container">
+          <!-- Individual Lists -->
+          <div class="list" *ngFor="let list of lists" cdkDrag>
             <div class="list-header">
-              <div class="list-title" *ngIf="editingListId !== list.id">
-                <h2>{{list.title}}</h2>
-                <div class="list-menu">
-                  <button class="list-menu-button" (click)="$event.stopPropagation(); toggleListMenu(list.id)">
-                    <span class="dots">•••</span>
-                  </button>
-                  
-                  <div class="list-menu-dropdown" *ngIf="showListMenu === list.id">
-                    <div class="menu-item" (click)="startEditingList(list)">
-                      <span>Edit List</span>
-                    </div>
-                    <div class="menu-item" (click)="deleteList(list.id)">
-                      <span>Delete List</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Edit Mode -->
-              <div class="list-title-edit" *ngIf="editingListId === list.id">
-                <input type="text"
-                       [(ngModel)]="editingListTitle"
-                       placeholder="Enter list title..."
-                       class="list-title-input"
-                       (keyup.enter)="saveListEdit()"
-                       #titleInput>
-                <div class="edit-buttons">
-                  <button class="save-button" (click)="saveListEdit()">Save</button>
-                  <button class="cancel-button" (click)="cancelListEdit()">Cancel</button>
-                </div>
+              <div class="list-title">
+                <h2>{{ list.title }}</h2>
+                <button class="menu-button" (click)="openListMenu(list)">
+                  <i class="material-icons">more_horiz</i>
+                </button>
               </div>
             </div>
 
-            <div class="list-cards">
-              <div class="card" *ngFor="let card of list.cards" [style.background-color]="card.color">
+            <div class="cards-container"
+                 cdkDropList
+                 [id]="list.id"
+                 [cdkDropListData]="list.cards"
+                 [cdkDropListConnectedTo]="getConnectedLists()"
+                 (cdkDropListDropped)="drop($event)">
+              
+              <!-- Cards -->
+              <div *ngFor="let card of list.cards"
+                   class="card"
+                   [style.background-color]="card.color"
+                   [style.color]="getTextColor(card.color)"
+                   cdkDrag
+                   (click)="openCardDetails(card, list)">
                 <div class="card-content">
-                  <h3>{{card.title}}</h3>
-                  <p>{{card.description}}</p>
-                </div>
-                <div class="card-actions">
-                  <button class="card-action-button" (click)="editCard(card)">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="16" width="16" viewBox="0 0 512 512">
-                      <path fill="#ffffff" d="M471.6 21.7c-21.9-21.9-57.3-21.9-79.2 0L362.3 51.7l97.9 97.9 30.1-30.1c21.9-21.9 21.9-57.3 0-79.2L471.6 21.7zm-299.2 220c-6.1 6.1-10.8 13.6-13.5 21.9l-29.6 88.8c-2.9 8.6-.6 18.1 5.8 24.6s15.9 8.7 24.6 5.8l88.8-29.6c8.2-2.7 15.7-7.4 21.9-13.5L437.7 172.3 339.7 74.3 172.4 241.7zM96 64C43 64 0 107 0 160V416c0 53 43 96 96 96H352c53 0 96-43 96-96V320c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7-14.3 32-32 32H96c-17.7 0-32-14.3-32-32V160c0-17.7 14.3-32 32-32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H96z"/>
-                    </svg>
-                  </button>
-                  <button class="card-action-button delete" (click)="deleteCard(list.id, card.id!)">
-                    <svg xmlns="http://www.w3.org/2000/svg" height="16" width="14" viewBox="0 0 448 512">
-                      <path fill="#ffffff" d="M135.2 17.7L128 32H32C14.3 32 0 46.3 0 64S14.3 96 32 96H416c17.7 0 32-14.3 32-32s-14.3-32-32-32H320l-7.2-14.3C307.4 6.8 296.3 0 284.2 0H163.8c-12.1 0-23.2 6.8-28.6 17.7zM416 128H32L53.2 467c1.6 25.3 22.6 45 47.9 45H346.9c25.3 0 46.3-19.7 47.9-45L416 128z"/>
-                    </svg>
-                  </button>
+                  <h3>{{ card.title }}</h3>
+                  <p>{{ card.description }}</p>
                 </div>
               </div>
-            </div>
 
-            <div class="add-card-section">
-              <button class="add-card-button" (click)="toggleAddCard(list.id)">
-                + Add a card
-              </button>
+              <!-- Add Card Button -->
+              <div class="add-card-button" (click)="openNewCardDialog($event, list)">
+                <i class="material-icons">add</i>
+                <span>Add a card</span>
+              </div>
             </div>
           </div>
 
           <!-- Add List Button and Form -->
           <div class="add-list-wrapper">
-            <button *ngIf="!showNewListForm" 
-                    class="add-list-button"
-                    (click)="toggleNewListForm()">
-              Add another list
-            </button>
-
-            <div *ngIf="showNewListForm" class="add-list-form">
-              <input type="text"
-                     [(ngModel)]="newListTitle"
+            <div class="add-list-button" (click)="toggleNewListForm()" *ngIf="!showNewListForm">
+              <i class="material-icons">add</i>
+              <span>Add another list</span>
+            </div>
+            
+            <div class="new-list-form" *ngIf="showNewListForm">
+              <input type="text" 
+                     [(ngModel)]="newListTitle" 
                      placeholder="Enter list title..."
-                     class="list-title-input">
-
-              <div class="form-buttons">
+                     (keyup.enter)="addNewList()"
+                     (keyup.escape)="toggleNewListForm()"
+                     #newListInput>
+              <div class="form-actions">
                 <button class="add-button" (click)="addNewList()">Add List</button>
                 <button class="cancel-button" (click)="toggleNewListForm()">Cancel</button>
               </div>
@@ -146,94 +101,72 @@
     </div>
   </div>
 
-  <!-- Card Creation Modal -->
-  <div class="modal-overlay" *ngIf="showCardModal" (click)="closeCardModal()">
-    <div class="modal-content" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h2>Create New Card</h2>
-        <button class="close-button" (click)="closeCardModal()">×</button>
-      </div>
-
-      <div class="modal-body">
-        <div class="form-group">
-          <label>Title</label>
-          <input type="text" 
-                 [(ngModel)]="newCardData.title" 
-                 placeholder="Enter card title..."
-                 class="modal-input">
-        </div>
-
-        <div class="form-group">
-          <label>Description</label>
-          <textarea [(ngModel)]="newCardData.description" 
-                    placeholder="Enter card description..."
-                    class="modal-textarea">
-          </textarea>
-        </div>
-
-        <div class="form-group">
-          <label>Card Color</label>
-          <div class="color-picker">
-            <div *ngFor="let color of cardColors" 
-                 class="color-option"
-                 [class.selected]="newCardData.color === color.value"
-                 [style.background-color]="color.value"
-                 (click)="newCardData.color = color.value"
-                 [attr.title]="color.name">
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button class="cancel-button" (click)="closeCardModal()">Cancel</button>
-        <button class="add-button" (click)="addCard()">Add Card</button>
+  <!-- New Card Popup -->
+  <div class="card-popup" *ngIf="showCardPopup" [ngStyle]="popupStyle">
+    <div class="card-popup-content">
+      <input type="text" 
+             [(ngModel)]="newCardTitle" 
+             placeholder="Enter a title or paste a link"
+             (keyup.enter)="addNewCard()"
+             (keyup.escape)="closeCardPopup()"
+             #newCardInput>
+      <div class="popup-actions">
+        <button class="add-card-btn" (click)="addNewCard()">Add card</button>
+        <button class="close-btn" (click)="closeCardPopup()">×</button>
       </div>
     </div>
   </div>
 
-  <!-- Card Edit Modal -->
-  <div class="modal-overlay" *ngIf="showEditCardModal" (click)="closeEditCardModal()">
-    <div class="modal-content" (click)="$event.stopPropagation()">
+  <!-- Card Details Popup -->
+  <div class="card-details-modal" *ngIf="showCardDetails">
+    <div class="modal-overlay" (click)="closeCardDetails()"></div>
+    <div class="modal-content">
       <div class="modal-header">
-        <h2>Edit Card</h2>
-        <button class="close-button" (click)="closeEditCardModal()">×</button>
+        <div class="card-title">
+          <i class="material-icons">description</i>
+          <input type="text" 
+                 [(ngModel)]="editingCardTitle"
+                 placeholder="Enter card title"
+                 #cardTitleInput>
+        </div>
+        <div class="list-info">
+          in list <strong>{{ currentList?.title }}</strong>
+        </div>
       </div>
 
       <div class="modal-body">
-        <div class="form-group">
-          <label>Title</label>
-          <input type="text" 
-                 [(ngModel)]="editingCard!.title" 
-                 placeholder="Enter card title..."
-                 class="modal-input">
-        </div>
-
-        <div class="form-group">
-          <label>Description</label>
-          <textarea [(ngModel)]="editingCard!.description" 
-                    placeholder="Enter card description..."
-                    class="modal-textarea">
-          </textarea>
-        </div>
-
-        <div class="form-group">
-          <label>Card Color</label>
-          <div class="color-picker">
-            <div *ngFor="let color of cardColors" 
-                 class="color-option"
-                 [class.selected]="editingCard!.color === color.value"
-                 [style.background-color]="color.value"
-                 (click)="editingCard!.color = color.value"
-                 [attr.title]="color.name">
-            </div>
+        <div class="colors-section">
+          <div class="section-header">
+            <i class="material-icons">palette</i>
+            <h3>Colors</h3>
           </div>
+          <div class="color-picker">
+            <button *ngFor="let color of cardColors"
+                    class="color-option"
+                    [class.selected]="currentCard?.color === color.value"
+                    [style.background-color]="color.value"
+                    [style.color]="getTextColor(color.value)"
+                    (click)="updateCardColor(color.value)"
+                    [attr.title]="color.name">
+            </button>
+          </div>
+        </div>
+
+        <div class="description-section">
+          <div class="section-header">
+            <i class="material-icons">subject</i>
+            <h3>Description</h3>
+            <button class="edit-button">Edit</button>
+          </div>
+          <textarea [(ngModel)]="editingCardDescription"
+                    placeholder="Add a more detailed description..."></textarea>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button class="cancel-button" (click)="closeEditCardModal()">Cancel</button>
-        <button class="add-button" (click)="saveCardEdit()">Save Changes</button>
+        <button class="save-button" (click)="saveCardDetails()">Save</button>
+        <button class="delete-button" (click)="deleteCard()">Delete</button>
+        <button class="close-button" (click)="closeCardDetails()">Close</button>
       </div>
     </div>
   </div>

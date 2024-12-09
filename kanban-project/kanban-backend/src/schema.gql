@@ -1,0 +1,67 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type Board {
+  id: ID!
+  lists: [List!]!
+  title: String!
+}
+
+type Card {
+  color: String!
+  description: String!
+  id: ID!
+  listId: String!
+  order: Float!
+  title: String!
+}
+
+input CreateCardInput {
+  color: String!
+  description: String!
+  listId: String!
+  order: Float!
+  title: String!
+}
+
+input CreateListInput {
+  order: Float!
+  title: String!
+}
+
+type List {
+  cards: [Card!]!
+  id: ID!
+  order: Float!
+  title: String!
+}
+
+type Mutation {
+  createCard(input: CreateCardInput!): Card!
+  createList(input: CreateListInput!): List!
+  deleteCard(id: ID!): Boolean!
+  deleteList(id: ID!): Boolean!
+  updateCard(input: UpdateCardInput!): Card!
+  updateList(input: UpdateListInput!): List!
+}
+
+type Query {
+  board(id: ID!): Board!
+  boards: [Board!]!
+}
+
+input UpdateCardInput {
+  color: String
+  description: String
+  id: ID!
+  listId: String
+  order: Float
+  title: String
+}
+
+input UpdateListInput {
+  id: ID!
+  order: Float
+  title: String
+}

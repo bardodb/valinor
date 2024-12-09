@@ -1,205 +1,258 @@
-import { Component, HostListener } from '@angular/core';
+import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-
-interface Card {
-  id?: number;
-  title: string;
-  description: string;
-  listId: string;
-  color: string;
-}
-
-interface List {
-  id: string;
-  title: string;
-  cards: Card[];
-  position: number;
-}
+import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
+import { KanbanService } from './services/kanban.service';
+import { Card, List, CreateListInput, CreateCardInput, UpdateCardInput, UpdateListInput } from './types/kanban.types';
 
 @Component({
   selector: 'app-root',
-  templateUrl: './app.component.html',
-  styleUrls: ['./app.component.css'],
   standalone: true,
-  imports: [CommonModule, FormsModule]
+  imports: [CommonModule, FormsModule, DragDropModule],
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css']
 })
-export class AppComponent {
-  title = 'Kanban Board';
-  lists: List[] = [
-    { id: 'backlog', title: 'Backlog', cards: [], position: 0 },
-    { id: 'todo', title: 'A Fazer', cards: [], position: 1 },
-    { id: 'doing', title: 'Em andamento', cards: [], position: 2 },
-    { id: 'design', title: 'Design', cards: [], position: 3 }
-  ];
+export class AppComponent implements AfterViewInit {
+  @ViewChild('newListInput') newListInput!: ElementRef;
+  @ViewChild('newCardInput') newCardInput!: ElementRef;
+  @ViewChild('cardTitleInput') cardTitleInput!: ElementRef;
 
-  activeList: string | null = null;
+  lists: List[] = [];
+  boardTitle = 'My Kanban Board';
   showNewListForm = false;
-  showCardModal = false;
-  showListMenu: string | null = null;
-  editingListId: string | null = null;
-  editingListTitle = '';
   newListTitle = '';
-  
+  showCardPopup = false;
+  showCardDetails = false;
+  currentList: List | null = null;
+  currentCard: Card | null = null;
+  newCardTitle = '';
+  editingCardTitle = '';
+  editingCardDescription = '';
+  popupStyle: { [key: string]: string } = {};
+
   cardColors = [
-    { value: '#4CAF50', name: 'Green' },
-    { value: '#FFA000', name: 'Orange' },
-    { value: '#F57C00', name: 'Deep Orange' },
-    { value: '#F44336', name: 'Red' },
-    { value: '#673AB7', name: 'Purple' },
-    { value: '#2196F3', name: 'Blue' },
-    { value: '#00BCD4', name: 'Cyan' },
-    { value: '#4CAF50', name: 'Light Green' },
-    { value: '#9C27B0', name: 'Pink' },
-    { value: '#607D8B', name: 'Grey' }
+    { value: '#4BCE97', name: 'Green' },
+    { value: '#F5CD47', name: 'Yellow' },
+    { value: '#FEA362', name: 'Orange' },
+    { value: '#F87168', name: 'Red' },
+    { value: '#9F8FEF', name: 'Purple' },
+    { value: '#579DFF', name: 'Blue' },
+    { value: '#60C6D2', name: 'Cyan' },
+    { value: '#94C748', name: 'Lime' },
+    { value: '#E774BB', name: 'Pink' },
+    { value: '#8590A2', name: 'Grey' }
   ];
-  
-  newCardData: Card = {
-    title: '',
-    description: '',
-    listId: '',
-    color: '#2196F3'
-  };
 
-  editingCardId: number | null = null;
-  showEditCardModal = false;
-  editingCard: Card | null = null;
+  constructor(private kanbanService: KanbanService) {
+    this.loadBoard();
+  }
 
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: MouseEvent) {
-    // Check if click is outside menu
-    if (!this.isClickInsideMenu(event)) {
-      this.showListMenu = null;
+  loadBoard() {
+    this.kanbanService.getBoard().subscribe(board => {
+      this.lists = board.lists;
+    });
+  }
+
+  ngAfterViewInit() {
+    this.focusNewListInput();
+  }
+
+  getTextColor(backgroundColor: string): string {
+    const hex = backgroundColor.replace('#', '');
+    const r = parseInt(hex.substr(0, 2), 16);
+    const g = parseInt(hex.substr(2, 2), 16);
+    const b = parseInt(hex.substr(4, 2), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5 ? '#1D2125' : '#FFFFFF';
+  }
+
+  focusNewListInput() {
+    if (this.showNewListForm && this.newListInput) {
+      setTimeout(() => this.newListInput.nativeElement.focus(), 0);
     }
-  }
-
-  private isClickInsideMenu(event: MouseEvent): boolean {
-    const element = event.target as HTMLElement;
-    return element.closest('.list-menu') !== null;
-  }
-
-  toggleListMenu(listId: string | null) {
-    this.showListMenu = this.showListMenu === listId ? null : listId;
-  }
-
-  startEditingList(list: List) {
-    this.editingListId = list.id;
-    this.editingListTitle = list.title;
-    this.showListMenu = null;
-  }
-
-  saveListEdit() {
-    if (this.editingListId && this.editingListTitle.trim()) {
-      const list = this.lists.find(l => l.id === this.editingListId);
-      if (list) {
-        list.title = this.editingListTitle.trim();
-        this.editingListId = null;
-        this.editingListTitle = '';
-      }
-    }
-  }
-
-  cancelListEdit() {
-    this.editingListId = null;
-    this.editingListTitle = '';
-  }
-
-  deleteList(listId: string) {
-    const index = this.lists.findIndex(l => l.id === listId);
-    if (index !== -1) {
-      this.lists.splice(index, 1);
-      // Update positions after deletion
-      this.lists.forEach((list, idx) => {
-        list.position = idx;
-      });
-    }
-    this.showListMenu = null;
-  }
-
-  toggleAddCard(listId: string) {
-    this.showCardModal = true;
-    this.newCardData = {
-      title: '',
-      description: '',
-      listId: listId,
-      color: '#2196F3'
-    };
-  }
-
-  addCard() {
-    if (this.newCardData.title.trim()) {
-      const list = this.lists.find(l => l.id === this.newCardData.listId);
-      if (list) {
-        // Add an ID to the new card
-        const newCard = {
-          ...this.newCardData,
-          id: Date.now() // Simple way to generate unique IDs
-        };
-        list.cards.push(newCard);
-        this.closeCardModal();
-      }
-    }
-  }
-
-  closeCardModal() {
-    this.showCardModal = false;
-    this.newCardData = {
-      title: '',
-      description: '',
-      listId: '',
-      color: '#2196F3'
-    };
   }
 
   toggleNewListForm() {
     this.showNewListForm = !this.showNewListForm;
-    this.newListTitle = '';
+    this.focusNewListInput();
   }
 
   addNewList() {
     if (this.newListTitle.trim()) {
-      const newList: List = {
-        id: this.newListTitle.toLowerCase().replace(/\s+/g, '-'),
-        title: this.newListTitle,
-        cards: [],
-        position: this.lists.length
+      const input: CreateListInput = {
+        title: this.newListTitle.trim(),
+        order: this.lists.length
       };
-      this.lists.push(newList);
-      this.showNewListForm = false;
-      this.newListTitle = '';
+
+      this.kanbanService.createList(input).subscribe(() => {
+        this.newListTitle = '';
+        this.showNewListForm = false;
+      });
     }
   }
 
-  editCard(card: Card) {
-    this.editingCard = { ...card };
-    this.showEditCardModal = true;
+  openNewCardDialog(event: MouseEvent, list: List) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const target = event.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    
+    this.popupStyle = {
+      top: `${rect.bottom + window.scrollY}px`,
+      left: `${rect.left + window.scrollX}px`
+    };
+    
+    this.currentList = list;
+    this.showCardPopup = true;
+    this.newCardTitle = '';
+    
+    setTimeout(() => {
+      if (this.newCardInput) {
+        this.newCardInput.nativeElement.focus();
+      }
+    }, 0);
   }
 
-  saveCardEdit() {
-    if (this.editingCard) {
-      const list = this.lists.find(l => l.id === this.editingCard!.listId);
-      if (list) {
-        const cardIndex = list.cards.findIndex(c => c.id === this.editingCard!.id);
-        if (cardIndex !== -1) {
-          list.cards[cardIndex] = { ...this.editingCard };
+  addNewCard() {
+    if (this.currentList && this.newCardTitle.trim()) {
+      const input: CreateCardInput = {
+        title: this.newCardTitle.trim(),
+        description: '',
+        color: '#22272b',
+        listId: this.currentList.id,
+        order: this.currentList.cards.length
+      };
+
+      this.kanbanService.createCard(input).subscribe(() => {
+        this.closeCardPopup();
+      });
+    }
+  }
+
+  closeCardPopup() {
+    this.showCardPopup = false;
+    this.currentList = null;
+    this.newCardTitle = '';
+  }
+
+  openCardDetails(card: Card, list: List) {
+    this.currentCard = { ...card };
+    this.currentList = list;
+    this.editingCardTitle = card.title;
+    this.editingCardDescription = card.description;
+    this.showCardDetails = true;
+  }
+
+  saveCardDetails() {
+    if (this.currentCard && this.currentList) {
+      const input: UpdateCardInput = {
+        id: this.currentCard.id,
+        title: this.editingCardTitle.trim(),
+        description: this.editingCardDescription.trim(),
+        color: this.currentCard.color
+      };
+
+      this.kanbanService.updateCard(input).subscribe(() => {
+        this.closeCardDetails();
+      });
+    }
+  }
+
+  updateCardColor(color: string) {
+    if (this.currentCard) {
+      this.currentCard.color = color;
+    }
+  }
+
+  closeCardDetails() {
+    this.showCardDetails = false;
+    this.currentCard = null;
+    this.currentList = null;
+  }
+
+  deleteCard() {
+    if (this.currentCard) {
+      this.kanbanService.deleteCard(this.currentCard.id).subscribe(() => {
+        this.closeCardDetails();
+      });
+    }
+  }
+
+  openListMenu(list: List) {
+    const action = prompt('Choose action (edit/delete):');
+    if (action === 'edit') {
+      const newTitle = prompt('Enter new list title:', list.title);
+      if (newTitle && newTitle.trim()) {
+        const input: UpdateListInput = {
+          id: list.id,
+          title: newTitle.trim()
+        };
+        this.kanbanService.updateList(input).subscribe();
+      }
+    } else if (action === 'delete') {
+      if (confirm('Are you sure you want to delete this list?')) {
+        this.kanbanService.deleteList(list.id).subscribe();
+      }
+    }
+  }
+
+  drop(event: CdkDragDrop<Card[]>) {
+    if (event.previousContainer === event.container) {
+      if (event.previousIndex === event.currentIndex) return;
+
+      const list = this.lists.find(l => l.cards === event.container.data);
+      if (!list) return;
+
+      moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
+      
+      // Update orders for all affected cards
+      event.container.data.forEach((card, index) => {
+        this.kanbanService.updateCard({
+          id: card.id,
+          order: index
+        }).subscribe();
+      });
+    } else {
+      const previousList = this.lists.find(l => l.cards === event.previousContainer.data);
+      const newList = this.lists.find(l => l.cards === event.container.data);
+      if (!previousList || !newList) return;
+
+      transferArrayItem(
+        event.previousContainer.data,
+        event.container.data,
+        event.previousIndex,
+        event.currentIndex
+      );
+
+      // Update the moved card with new list and order
+      const movedCard = event.container.data[event.currentIndex];
+      this.kanbanService.updateCard({
+        id: movedCard.id,
+        listId: newList.id,
+        order: event.currentIndex
+      }).subscribe();
+
+      // Update orders for all affected cards in both lists
+      event.previousContainer.data.forEach((card, index) => {
+        this.kanbanService.updateCard({
+          id: card.id,
+          order: index
+        }).subscribe();
+      });
+
+      event.container.data.forEach((card, index) => {
+        if (index !== event.currentIndex) {
+          this.kanbanService.updateCard({
+            id: card.id,
+            order: index
+          }).subscribe();
         }
-      }
-      this.closeEditCardModal();
+      });
     }
   }
 
-  closeEditCardModal() {
-    this.showEditCardModal = false;
-    this.editingCard = null;
-  }
-
-  deleteCard(listId: string, cardId: number) {
-    const list = this.lists.find(l => l.id === listId);
-    if (list) {
-      const cardIndex = list.cards.findIndex(c => c.id === cardId);
-      if (cardIndex !== -1) {
-        list.cards.splice(cardIndex, 1);
-      }
-    }
+  getConnectedLists() {
+    return this.lists.map(list => `list-${list.id}`);
   }
 }
