@@ -7,12 +7,12 @@ async function bootstrap() {
   
   // Configure CORS
   app.use(cors({
-    origin: ['http://localhost:4200', 'http://localhost:3000', 'http://localhost'],
+    origin: ['http://localhost:4200', 'http://localhost:3000', 'http://localhost', 'http://localhost:80'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: ['Content-Type', 'Accept', 'Authorization'],
     credentials: true
   }));
 
-  await app.listen(process.env.PORT ?? 3001);
+  await app.listen(3001);
 }
 bootstrap();
