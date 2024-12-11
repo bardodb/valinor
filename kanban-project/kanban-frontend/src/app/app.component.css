@@ -1394,3 +1394,26 @@
 .close-button:hover {
   background-color: rgba(255, 255, 255, 0.2);
 }
+
+/* List Drag and Drop Styles */
+.list-header {
+  cursor: move;
+  user-select: none;
+}
+
+.list.cdk-drag-preview {
+  background: #282e33;
+  box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+}
+
+.list.cdk-drag-placeholder {
+  opacity: 0.3;
+}
+
+.list.cdk-drag-animating {
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.lists-container.cdk-drop-list-dragging .list:not(.cdk-drag-placeholder) {
+  transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
+}

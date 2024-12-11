@@ -125,7 +125,32 @@ export class KanbanService {
       .mutate<{ updateList: List }>({
         mutation: UPDATE_LIST,
         variables: { input },
-        refetchQueries: [{ query: GET_BOARD, variables: { id: this.boardId } }]
+        update: (cache, { data }) => {
+          if (!data) return;
+          
+          const updatedList = data.updateList;
+          const existingBoard = cache.readQuery<{ board: Board }>({
+            query: GET_BOARD,
+            variables: { id: this.boardId }
+          });
+
+          if (!existingBoard) return;
+
+          const updatedLists = existingBoard.board.lists.map(list => 
+            list.id === updatedList.id ? { ...list, ...updatedList } : list
+          );
+
+          cache.writeQuery({
+            query: GET_BOARD,
+            variables: { id: this.boardId },
+            data: {
+              board: {
+                ...existingBoard.board,
+                lists: updatedLists
+              }
+            }
+          });
+        }
       })
       .pipe(map(result => result.data!.updateList));
   }
@@ -155,7 +180,35 @@ export class KanbanService {
       .mutate<{ updateCard: Card }>({
         mutation: UPDATE_CARD,
         variables: { input },
-        refetchQueries: [{ query: GET_BOARD, variables: { id: this.boardId } }]
+        update: (cache, { data }) => {
+          if (!data) return;
+          
+          const updatedCard = data.updateCard;
+          const existingBoard = cache.readQuery<{ board: Board }>({
+            query: GET_BOARD,
+            variables: { id: this.boardId }
+          });
+
+          if (!existingBoard) return;
+
+          const updatedLists = existingBoard.board.lists.map(list => ({
+            ...list,
+            cards: list.cards.map(card => 
+              card.id === updatedCard.id ? updatedCard : card
+            )
+          }));
+
+          cache.writeQuery({
+            query: GET_BOARD,
+            variables: { id: this.boardId },
+            data: {
+              board: {
+                ...existingBoard.board,
+                lists: updatedLists
+              }
+            }
+          });
+        }
       })
       .pipe(map(result => result.data!.updateCard));
   }

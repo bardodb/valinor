@@ -34,12 +34,12 @@
 
     <!-- Board Container -->
     <div class="board-container">
-      <div class="board" cdkDropListGroup>
+      <div class="board">
         <!-- Lists Container -->
-        <div class="lists-container">
+        <div class="lists-container" cdkDropList cdkDropListOrientation="horizontal" (cdkDropListDropped)="dropList($event)" cdkDropListGroup>
           <!-- Individual Lists -->
-          <div class="list" *ngFor="let list of lists" cdkDrag>
-            <div class="list-header">
+          <div class="list" *ngFor="let list of lists" cdkDrag [cdkDragData]="list">
+            <div class="list-header" cdkDragHandle>
               <div class="list-title">
                 <h2>{{ list.title }}</h2>
                 <button class="menu-button" (click)="openListMenu(list)">
@@ -53,7 +53,7 @@
                  [id]="list.id"
                  [cdkDropListData]="list.cards"
                  [cdkDropListConnectedTo]="getConnectedLists()"
-                 (cdkDropListDropped)="drop($event)">
+                 (cdkDropListDropped)="dropCard($event)">
               
               <!-- Cards -->
               <div *ngFor="let card of list.cards"

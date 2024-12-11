@@ -59,9 +59,9 @@ export class AppComponent implements AfterViewInit {
 
   getTextColor(backgroundColor: string): string {
     const hex = backgroundColor.replace('#', '');
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 2), 16);
+    const b = parseInt(hex.substring(4, 2), 16);
     const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
     return luminance > 0.5 ? '#1D2125' : '#FFFFFF';
   }
@@ -197,7 +197,7 @@ export class AppComponent implements AfterViewInit {
     }
   }
 
-  drop(event: CdkDragDrop<Card[]>) {
+  dropCard(event: CdkDragDrop<Card[]>) {
     if (event.previousContainer === event.container) {
       if (event.previousIndex === event.currentIndex) return;
 
@@ -250,6 +250,19 @@ export class AppComponent implements AfterViewInit {
         }
       });
     }
+  }
+
+  dropList(event: CdkDragDrop<List[]>) {
+    if (event.previousIndex === event.currentIndex) return;
+
+    moveItemInArray(this.lists, event.previousIndex, event.currentIndex);
+
+    // Update only the moved list with its new order
+    const movedList = this.lists[event.currentIndex];
+    this.kanbanService.updateList({
+      id: movedList.id,
+      order: event.currentIndex
+    }).subscribe();
   }
 
   getConnectedLists() {
