@@ -2,13 +2,15 @@ import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
+import { MatDialog } from '@angular/material/dialog';
 import { KanbanService } from './services/kanban.service';
 import { Card, List, CreateListInput, CreateCardInput, UpdateCardInput, UpdateListInput } from './types/kanban.types';
+import { ListMenuDialogComponent } from './components/list-menu-dialog/list-menu-dialog.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, DragDropModule],
+  imports: [CommonModule, FormsModule, DragDropModule, ListMenuDialogComponent],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
@@ -43,7 +45,10 @@ export class AppComponent implements AfterViewInit {
     { value: '#8590A2', name: 'Grey' }
   ];
 
-  constructor(private kanbanService: KanbanService) {
+  constructor(
+    private kanbanService: KanbanService,
+    private dialog: MatDialog
+  ) {
     this.loadBoard();
   }
 
@@ -180,21 +185,27 @@ export class AppComponent implements AfterViewInit {
   }
 
   openListMenu(list: List) {
-    const action = prompt('Choose action (edit/delete):');
-    if (action === 'edit') {
-      const newTitle = prompt('Enter new list title:', list.title);
-      if (newTitle && newTitle.trim()) {
-        const input: UpdateListInput = {
-          id: list.id,
-          title: newTitle.trim()
-        };
-        this.kanbanService.updateList(input).subscribe();
+    const dialogRef = this.dialog.open(ListMenuDialogComponent, {
+      width: '250px',
+      data: { list }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result?.action === 'rename') {
+        const newTitle = prompt('Enter new list title:', list.title);
+        if (newTitle && newTitle.trim()) {
+          const input: UpdateListInput = {
+            id: list.id,
+            title: newTitle.trim()
+          };
+          this.kanbanService.updateList(input).subscribe();
+        }
+      } else if (result?.action === 'exclude') {
+        if (confirm('Are you sure you want to delete this list?')) {
+          this.kanbanService.deleteList(list.id).subscribe();
+        }
       }
-    } else if (action === 'delete') {
-      if (confirm('Are you sure you want to delete this list?')) {
-        this.kanbanService.deleteList(list.id).subscribe();
-      }
-    }
+    });
   }
 
   dropCard(event: CdkDragDrop<Card[]>) {
