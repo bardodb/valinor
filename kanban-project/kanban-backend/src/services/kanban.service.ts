@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Board, Card, CreateCardInput, CreateListInput, List, UpdateCardInput, UpdateListInput } from '../graphql/types';
+import { Board, Card, CreateCardInput, CreateListInput, List, UpdateCardInput, UpdateListInput, BulkUpdateCardsInput, BulkUpdateListsInput } from '../graphql/types';
 
 @Injectable()
 export class KanbanService {
@@ -163,5 +163,77 @@ export class KanbanService {
       }
     }
     return found;
+  }
+
+  bulkUpdateCards(input: BulkUpdateCardsInput): Card[] {
+    const updatedCards: Card[] = [];
+
+    input.cards.forEach(updateData => {
+      const list = this.board.lists.find(l => 
+        l.cards.some(c => c.id === updateData.id)
+      );
+
+      if (list) {
+        const cardIndex = list.cards.findIndex(c => c.id === updateData.id);
+        if (cardIndex !== -1) {
+          const card = list.cards[cardIndex];
+          
+          // If listId is provided and different, move card to new list
+          if (updateData.listId && updateData.listId !== card.listId) {
+            // Remove from old list
+            list.cards.splice(cardIndex, 1);
+            
+            // Add to new list
+            const newList = this.board.lists.find(l => l.id === updateData.listId);
+            if (newList) {
+              const updatedCard = {
+                ...card,
+                listId: updateData.listId,
+                order: updateData.order
+              };
+              newList.cards.push(updatedCard);
+              updatedCards.push(updatedCard);
+            }
+          } else {
+            // Just update order
+            const updatedCard = {
+              ...card,
+              order: updateData.order
+            };
+            list.cards[cardIndex] = updatedCard;
+            updatedCards.push(updatedCard);
+          }
+        }
+      }
+    });
+
+    // Sort cards in each list by order
+    this.board.lists.forEach(list => {
+      list.cards.sort((a, b) => a.order - b.order);
+    });
+
+    return updatedCards;
+  }
+
+  bulkUpdateLists(input: BulkUpdateListsInput): List[] {
+    const updatedLists: List[] = [];
+
+    input.lists.forEach(updateData => {
+      const listIndex = this.board.lists.findIndex(l => l.id === updateData.id);
+      if (listIndex !== -1) {
+        const list = this.board.lists[listIndex];
+        const updatedList = {
+          ...list,
+          order: updateData.order
+        };
+        this.board.lists[listIndex] = updatedList;
+        updatedLists.push(updatedList);
+      }
+    });
+
+    // Sort lists by order
+    this.board.lists.sort((a, b) => a.order - b.order);
+
+    return updatedLists;
   }
 }

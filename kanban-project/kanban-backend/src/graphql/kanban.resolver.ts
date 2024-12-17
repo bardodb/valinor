@@ -1,5 +1,5 @@
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { Board, Card, CreateCardInput, CreateListInput, List, UpdateCardInput, UpdateListInput } from './types';
+import { Board, Card, CreateCardInput, CreateListInput, List, UpdateCardInput, UpdateListInput, BulkUpdateCardsInput, BulkUpdateListsInput } from './types';
 import { KanbanService } from '../services/kanban.service';
 
 @Resolver(() => Board)
@@ -44,5 +44,15 @@ export class KanbanResolver {
   @Mutation(() => Boolean, { name: 'deleteCard' })
   async deleteCard(@Args('id', { type: () => ID }) id: string) {
     return this.kanbanService.deleteCard(id);
+  }
+
+  @Mutation(() => [Card])
+  bulkUpdateCards(@Args('input') input: BulkUpdateCardsInput): Card[] {
+    return this.kanbanService.bulkUpdateCards(input);
+  }
+
+  @Mutation(() => [List])
+  bulkUpdateLists(@Args('input') input: BulkUpdateListsInput): List[] {
+    return this.kanbanService.bulkUpdateLists(input);
   }
 }

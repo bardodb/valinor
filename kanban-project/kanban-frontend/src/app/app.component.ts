@@ -2,7 +2,7 @@ import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
-import { MatDialog } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { KanbanService } from './services/kanban.service';
 import { Card, List, CreateListInput, CreateCardInput, UpdateCardInput, UpdateListInput } from './types/kanban.types';
 import { ListMenuDialogComponent } from './components/list-menu-dialog/list-menu-dialog.component';
@@ -10,7 +10,13 @@ import { ListMenuDialogComponent } from './components/list-menu-dialog/list-menu
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, DragDropModule, ListMenuDialogComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    DragDropModule,
+    MatDialogModule,
+    ListMenuDialogComponent
+  ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
@@ -54,7 +60,8 @@ export class AppComponent implements AfterViewInit {
 
   loadBoard() {
     this.kanbanService.getBoard().subscribe(board => {
-      this.lists = board.lists;
+      // Sort lists by order before assigning
+      this.lists = board.lists.sort((a, b) => a.order - b.order);
     });
   }
 
@@ -217,13 +224,13 @@ export class AppComponent implements AfterViewInit {
 
       moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
       
-      // Update orders for all affected cards
-      event.container.data.forEach((card, index) => {
-        this.kanbanService.updateCard({
-          id: card.id,
-          order: index
-        }).subscribe();
-      });
+      // Update all cards in the list with a single request
+      const cards = event.container.data.map((card, index) => ({
+        id: card.id,
+        order: index
+      }));
+      
+      this.kanbanService.bulkUpdateCards({ cards }).subscribe();
     } else {
       const previousList = this.lists.find(l => l.cards === event.previousContainer.data);
       const newList = this.lists.find(l => l.cards === event.container.data);
@@ -236,30 +243,20 @@ export class AppComponent implements AfterViewInit {
         event.currentIndex
       );
 
-      // Update the moved card with new list and order
-      const movedCard = event.container.data[event.currentIndex];
-      this.kanbanService.updateCard({
-        id: movedCard.id,
-        listId: newList.id,
-        order: event.currentIndex
-      }).subscribe();
-
-      // Update orders for all affected cards in both lists
-      event.previousContainer.data.forEach((card, index) => {
-        this.kanbanService.updateCard({
+      // Update all affected cards in both lists with a single request
+      const cards = [
+        ...event.previousContainer.data.map((card, index) => ({
           id: card.id,
           order: index
-        }).subscribe();
-      });
+        })),
+        ...event.container.data.map((card, index) => ({
+          id: card.id,
+          order: index,
+          listId: newList.id
+        }))
+      ];
 
-      event.container.data.forEach((card, index) => {
-        if (index !== event.currentIndex) {
-          this.kanbanService.updateCard({
-            id: card.id,
-            order: index
-          }).subscribe();
-        }
-      });
+      this.kanbanService.bulkUpdateCards({ cards }).subscribe();
     }
   }
 
@@ -268,12 +265,13 @@ export class AppComponent implements AfterViewInit {
 
     moveItemInArray(this.lists, event.previousIndex, event.currentIndex);
 
-    // Update only the moved list with its new order
-    const movedList = this.lists[event.currentIndex];
-    this.kanbanService.updateList({
-      id: movedList.id,
-      order: event.currentIndex
-    }).subscribe();
+    // Update all lists with their new orders in a single request
+    const lists = this.lists.map((list, index) => ({
+      id: list.id,
+      order: index
+    }));
+
+    this.kanbanService.bulkUpdateLists({ lists }).subscribe();
   }
 
   getConnectedLists() {

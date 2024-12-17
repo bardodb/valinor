@@ -107,3 +107,36 @@ export class UpdateListInput {
   @Field({ nullable: true })
   order?: number;
 }
+
+@InputType()
+export class BulkCardUpdate {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  order: number;
+
+  @Field({ nullable: true })
+  listId?: string;
+}
+
+@InputType()
+export class BulkUpdateCardsInput {
+  @Field(() => [BulkCardUpdate])
+  cards: BulkCardUpdate[];
+}
+
+@InputType()
+export class BulkListUpdate {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  order: number;
+}
+
+@InputType()
+export class BulkUpdateListsInput {
+  @Field(() => [BulkListUpdate])
+  lists: BulkListUpdate[];
+}

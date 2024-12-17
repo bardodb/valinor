@@ -47,3 +47,18 @@ export interface UpdateListInput {
   title?: string;
   order?: number;
 }
+
+export interface BulkUpdateCardsInput {
+  cards: {
+    id: string;
+    order: number;
+    listId?: string;
+  }[];
+}
+
+export interface BulkUpdateListsInput {
+  lists: {
+    id: string;
+    order: number;
+  }[];
+}

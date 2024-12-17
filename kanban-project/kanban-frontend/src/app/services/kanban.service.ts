@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Apollo } from 'apollo-angular';
 import { gql } from '@apollo/client/core';
 import { Observable, map } from 'rxjs';
-import { Board, Card, CreateCardInput, CreateListInput, List, UpdateCardInput, UpdateListInput } from '../types/kanban.types';
+import { Board, Card, CreateCardInput, CreateListInput, List, UpdateCardInput, UpdateListInput, BulkUpdateCardsInput, BulkUpdateListsInput } from '../types/kanban.types';
 
 // GraphQL Queries and Mutations
 const GET_BOARD = gql`
@@ -90,6 +90,25 @@ const UPDATE_CARD = gql`
 const DELETE_CARD = gql`
   mutation DeleteCard($id: ID!) {
     deleteCard(id: $id)
+  }
+`;
+
+const BULK_UPDATE_CARDS = gql`
+  mutation BulkUpdateCards($input: BulkUpdateCardsInput!) {
+    bulkUpdateCards(input: $input) {
+      id
+      order
+      listId
+    }
+  }
+`;
+
+const BULK_UPDATE_LISTS = gql`
+  mutation BulkUpdateLists($input: BulkUpdateListsInput!) {
+    bulkUpdateLists(input: $input) {
+      id
+      order
+    }
   }
 `;
 
@@ -221,5 +240,83 @@ export class KanbanService {
         refetchQueries: [{ query: GET_BOARD, variables: { id: this.boardId } }]
       })
       .pipe(map(result => result.data!.deleteCard));
+  }
+
+  bulkUpdateCards(input: BulkUpdateCardsInput): Observable<Card[]> {
+    return this.apollo.mutate<{ bulkUpdateCards: Card[] }>({
+      mutation: BULK_UPDATE_CARDS,
+      variables: { input },
+      update: (cache, { data }) => {
+        const board = cache.readQuery<{ board: Board }>({
+          query: GET_BOARD,
+          variables: { id: this.boardId }
+        });
+
+        if (board) {
+          const updatedLists = board.board.lists.map(list => ({
+            ...list,
+            cards: list.cards.map(card => {
+              const updatedCard = input.cards.find(c => c.id === card.id);
+              if (updatedCard) {
+                return {
+                  ...card,
+                  order: updatedCard.order,
+                  listId: updatedCard.listId || card.listId
+                };
+              }
+              return card;
+            })
+          }));
+
+          cache.writeQuery({
+            query: GET_BOARD,
+            variables: { id: this.boardId },
+            data: {
+              board: {
+                ...board.board,
+                lists: updatedLists
+              }
+            }
+          });
+        }
+      }
+    }).pipe(map(result => result.data?.bulkUpdateCards || []));
+  }
+
+  bulkUpdateLists(input: BulkUpdateListsInput): Observable<List[]> {
+    return this.apollo.mutate<{ bulkUpdateLists: List[] }>({
+      mutation: BULK_UPDATE_LISTS,
+      variables: { input },
+      update: (cache, { data }) => {
+        const board = cache.readQuery<{ board: Board }>({
+          query: GET_BOARD,
+          variables: { id: this.boardId }
+        });
+
+        if (board) {
+          const updatedLists = board.board.lists.map(list => {
+            const updatedList = input.lists.find(l => l.id === list.id);
+            if (updatedList) {
+              return {
+                ...list,
+                order: updatedList.order
+              };
+            }
+            return list;
+          });
+
+          cache.writeQuery({
+            query: GET_BOARD,
+            variables: { id: this.boardId },
+            data: {
+              board: {
+                ...board.board,
+                lists: updatedLists
+              }
+            }
+          });
+        }
+      }
+    }).pipe(map(result => result.data?.bulkUpdateLists || []));
   }
 }
