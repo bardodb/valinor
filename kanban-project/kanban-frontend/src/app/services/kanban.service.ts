@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Apollo } from 'apollo-angular';
 import { gql } from '@apollo/client/core';
-import { Observable, map } from 'rxjs';
-import { Board, Card, CreateCardInput, CreateListInput, List, UpdateCardInput, UpdateListInput, BulkUpdateCardsInput, BulkUpdateListsInput } from '../types/kanban.types';
+import { Observable, map, merge } from 'rxjs';
+import { Board, Card, CreateCardInput, CreateListInput, List, UpdateCardInput, UpdateListInput, BulkUpdateCardsInput, BulkUpdateListsInput, BulkUpdateInput } from '../types/kanban.types';
 
 // GraphQL Queries and Mutations
 const GET_BOARD = gql`
@@ -51,6 +51,14 @@ const UPDATE_LIST = gql`
       id
       title
       order
+      cards {
+        id
+        title
+        description
+        color
+        listId
+        order
+      }
     }
   }
 `;
@@ -97,8 +105,8 @@ const BULK_UPDATE_CARDS = gql`
   mutation BulkUpdateCards($input: BulkUpdateCardsInput!) {
     bulkUpdateCards(input: $input) {
       id
-      order
       listId
+      order
     }
   }
 `;
@@ -108,6 +116,48 @@ const BULK_UPDATE_LISTS = gql`
     bulkUpdateLists(input: $input) {
       id
       order
+    }
+  }
+`;
+
+const BULK_UPDATE = gql`
+  mutation BulkUpdate($input: BulkUpdateInput!) {
+    bulkUpdate(input: $input) {
+      lists {
+        id
+        title
+        order
+        cards {
+          id
+          title
+          description
+          color
+          listId
+          order
+        }
+      }
+    }
+  }
+`;
+
+const BOARD_UPDATED = gql`
+  subscription OnBoardUpdated($boardId: ID!) {
+    boardUpdated(boardId: $boardId) {
+      id
+      title
+      lists {
+        id
+        title
+        order
+        cards {
+          id
+          title
+          description
+          color
+          listId
+          order
+        }
+      }
     }
   }
 `;
@@ -144,10 +194,18 @@ export class KanbanService {
       .mutate<{ updateList: List }>({
         mutation: UPDATE_LIST,
         variables: { input },
+        optimisticResponse: {
+          updateList: {
+            __typename: 'List',
+            id: input.id,
+            title: input.title || '',
+            order: input.order || 0,
+            cards: [] // Will be populated from cache
+          }
+        },
         update: (cache, { data }) => {
           if (!data) return;
-          
-          const updatedList = data.updateList;
+
           const existingBoard = cache.readQuery<{ board: Board }>({
             query: GET_BOARD,
             variables: { id: this.boardId }
@@ -155,19 +213,17 @@ export class KanbanService {
 
           if (!existingBoard) return;
 
-          const updatedLists = existingBoard.board.lists.map(list => 
-            list.id === updatedList.id ? { ...list, ...updatedList } : list
-          );
+          const updatedBoard = {
+            ...existingBoard.board,
+            lists: existingBoard.board.lists.map(list =>
+              list.id === data.updateList.id ? data.updateList : list
+            )
+          };
 
           cache.writeQuery({
             query: GET_BOARD,
             variables: { id: this.boardId },
-            data: {
-              board: {
-                ...existingBoard.board,
-                lists: updatedLists
-              }
-            }
+            data: { board: updatedBoard }
           });
         }
       })
@@ -199,10 +255,21 @@ export class KanbanService {
       .mutate<{ updateCard: Card }>({
         mutation: UPDATE_CARD,
         variables: { input },
+        optimisticResponse: {
+          updateCard: {
+            __typename: 'Card',
+            id: input.id,
+            title: input.title || '',
+            description: input.description || '',
+            color: input.color || '',
+            listId: input.listId || '',
+            order: input.order || 0,
+          }
+        },
         update: (cache, { data }) => {
           if (!data) return;
           
-          const updatedCard = data.updateCard;
+          // Read the current board data
           const existingBoard = cache.readQuery<{ board: Board }>({
             query: GET_BOARD,
             variables: { id: this.boardId }
@@ -210,22 +277,22 @@ export class KanbanService {
 
           if (!existingBoard) return;
 
-          const updatedLists = existingBoard.board.lists.map(list => ({
-            ...list,
-            cards: list.cards.map(card => 
-              card.id === updatedCard.id ? updatedCard : card
-            )
-          }));
+          // Update the card in the cache
+          const updatedBoard = {
+            ...existingBoard.board,
+            lists: existingBoard.board.lists.map(list => ({
+              ...list,
+              cards: list.cards.map(card => 
+                card.id === data.updateCard.id ? data.updateCard : card
+              )
+            }))
+          };
 
+          // Write back to cache
           cache.writeQuery({
             query: GET_BOARD,
             variables: { id: this.boardId },
-            data: {
-              board: {
-                ...existingBoard.board,
-                lists: updatedLists
-              }
-            }
+            data: { board: updatedBoard }
           });
         }
       })
@@ -243,44 +310,51 @@ export class KanbanService {
   }
 
   bulkUpdateCards(input: BulkUpdateCardsInput): Observable<Card[]> {
-    return this.apollo.mutate<{ bulkUpdateCards: Card[] }>({
-      mutation: BULK_UPDATE_CARDS,
-      variables: { input },
-      update: (cache, { data }) => {
-        const board = cache.readQuery<{ board: Board }>({
-          query: GET_BOARD,
-          variables: { id: this.boardId }
-        });
+    return this.apollo
+      .mutate<{ bulkUpdateCards: Card[] }>({
+        mutation: BULK_UPDATE_CARDS,
+        variables: { input },
+        optimisticResponse: {
+          bulkUpdateCards: input.cards.map(card => ({
+            __typename: 'Card',
+            id: card.id,
+            title: '',           // Providing default empty string
+            description: '',     // Providing default empty string
+            color: '#FFFFFF',    // Providing default white color
+            listId: card.listId || '',
+            order: card.order
+          }))
+        },
+        update: (cache, { data }) => {
+          if (!data) return;
+          
+          const existingBoard = cache.readQuery<{ board: Board }>({
+            query: GET_BOARD,
+            variables: { id: this.boardId }
+          });
 
-        if (board) {
-          const updatedLists = board.board.lists.map(list => ({
-            ...list,
-            cards: list.cards.map(card => {
-              const updatedCard = input.cards.find(c => c.id === card.id);
-              if (updatedCard) {
-                return {
-                  ...card,
-                  order: updatedCard.order,
-                  listId: updatedCard.listId || card.listId
-                };
-              }
-              return card;
-            })
-          }));
+          if (!existingBoard) return;
+
+          // Update multiple cards in the cache
+          const updatedBoard = {
+            ...existingBoard.board,
+            lists: existingBoard.board.lists.map(list => ({
+              ...list,
+              cards: list.cards.map(card => {
+                const updatedCard = data.bulkUpdateCards.find(uc => uc.id === card.id);
+                return updatedCard ? { ...card, ...updatedCard } : card;
+              })
+            }))
+          };
 
           cache.writeQuery({
             query: GET_BOARD,
             variables: { id: this.boardId },
-            data: {
-              board: {
-                ...board.board,
-                lists: updatedLists
-              }
-            }
+            data: { board: updatedBoard }
           });
         }
-      }
-    }).pipe(map(result => result.data?.bulkUpdateCards || []));
+      })
+      .pipe(map(result => result.data!.bulkUpdateCards));
   }
 
   bulkUpdateLists(input: BulkUpdateListsInput): Observable<List[]> {
@@ -318,5 +392,67 @@ export class KanbanService {
         }
       }
     }).pipe(map(result => result.data?.bulkUpdateLists || []));
+  }
+
+  bulkUpdate(input: { lists: List[], cards: Card[] }): Observable<{ lists: List[], cards: Card[] }> {
+    return this.apollo
+      .mutate<{ bulkUpdate: { lists: List[], cards: Card[] } }>({
+        mutation: BULK_UPDATE,
+        variables: { input },
+        update: (cache, { data }) => {
+          if (!data) return;
+          
+          // Update the cache with the new data
+          const boardData = cache.readQuery<{ board: Board }>({
+            query: GET_BOARD,
+            variables: { id: this.boardId }
+          });
+
+          if (boardData) {
+            cache.writeQuery({
+              query: GET_BOARD,
+              variables: { id: this.boardId },
+              data: {
+                board: {
+                  ...boardData.board,
+                  lists: data.bulkUpdate.lists
+                }
+              }
+            });
+          }
+        }
+      })
+      .pipe(map(result => result.data!.bulkUpdate));
+  }
+
+  // Subscribe to real-time board updates
+  subscribeToBoard(): Observable<Board> {
+    return this.apollo
+      .subscribe<{ boardUpdated: Board }>({
+        query: BOARD_UPDATED,
+        variables: { boardId: this.boardId }
+      })
+      .pipe(map(result => {
+        if (!result.data) {
+          throw new Error('No data received from subscription');
+        }
+        return result.data.boardUpdated;
+      }));
+  }
+
+  // Enhanced getBoard method that uses polling for updates
+  getBoardWithUpdates(): Observable<Board> {
+    return this.apollo.watchQuery<{ board: Board }>({
+      query: GET_BOARD,
+      variables: { id: this.boardId },
+      pollInterval: 2000, // Poll every 2 seconds
+    }).valueChanges.pipe(
+      map(result => {
+        if (!result.data) {
+          throw new Error('No data received from query');
+        }
+        return result.data.board;
+      })
+    );
   }
 }

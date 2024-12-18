@@ -1,10 +1,10 @@
-import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, ViewChild, ElementRef, AfterViewInit, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { KanbanService } from './services/kanban.service';
-import { Card, List, CreateListInput, CreateCardInput, UpdateCardInput, UpdateListInput } from './types/kanban.types';
+import { Card, List, CreateListInput, CreateCardInput, UpdateCardInput, UpdateListInput, Board } from './types/kanban.types';
 import { ListMenuDialogComponent } from './components/list-menu-dialog/list-menu-dialog.component';
 
 @Component({
@@ -20,12 +20,13 @@ import { ListMenuDialogComponent } from './components/list-menu-dialog/list-menu
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
-export class AppComponent implements AfterViewInit {
+export class AppComponent implements AfterViewInit, OnInit {
   @ViewChild('newListInput') newListInput!: ElementRef;
   @ViewChild('newCardInput') newCardInput!: ElementRef;
   @ViewChild('cardTitleInput') cardTitleInput!: ElementRef;
 
   lists: List[] = [];
+  board!: Board;
   boardTitle = 'My Kanban Board';
   showNewListForm = false;
   newListTitle = '';
@@ -54,14 +55,17 @@ export class AppComponent implements AfterViewInit {
   constructor(
     private kanbanService: KanbanService,
     private dialog: MatDialog
-  ) {
-    this.loadBoard();
-  }
+  ) { }
 
-  loadBoard() {
-    this.kanbanService.getBoard().subscribe(board => {
-      // Sort lists by order before assigning
-      this.lists = board.lists.sort((a, b) => a.order - b.order);
+  ngOnInit() {
+    // Subscribe to board updates
+    this.kanbanService.getBoardWithUpdates().subscribe(board => {
+      this.board = board;
+      this.lists = board.lists;
+      this.lists.sort((a, b) => a.order - b.order);
+      this.lists.forEach(list => {
+        list.cards.sort((a, b) => a.order - b.order);
+      });
     });
   }
 
@@ -157,24 +161,40 @@ export class AppComponent implements AfterViewInit {
   }
 
   saveCardDetails() {
-    if (this.currentCard && this.currentList) {
-      const input: UpdateCardInput = {
-        id: this.currentCard.id,
-        title: this.editingCardTitle.trim(),
-        description: this.editingCardDescription.trim(),
-        color: this.currentCard.color
-      };
+    if (!this.currentCard) return;
 
-      this.kanbanService.updateCard(input).subscribe(() => {
-        this.closeCardDetails();
+    const updates: UpdateCardInput = {
+      id: this.currentCard.id,
+      title: this.editingCardTitle,
+      description: this.editingCardDescription,
+      color: this.currentCard.color
+    };
+
+    // Update local state immediately
+    Object.assign(this.currentCard, updates);
+    
+    // Update in backend
+    this.kanbanService.updateCard(updates)
+      .subscribe({
+        next: () => this.closeCardDetails(),
+        error: (error) => {
+          console.error('Failed to update card:', error);
+          // Optionally show error message to user
+        }
       });
-    }
   }
 
   updateCardColor(color: string) {
-    if (this.currentCard) {
-      this.currentCard.color = color;
-    }
+    if (!this.currentCard) return;
+    
+    // Update local state immediately
+    this.currentCard.color = color;
+    
+    // Update in backend
+    this.kanbanService.updateCard({
+      id: this.currentCard.id,
+      color: color
+    }).subscribe();
   }
 
   closeCardDetails() {

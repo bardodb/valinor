@@ -1,4 +1,5 @@
 export interface Card {
+  __typename?: 'Card';
   id: string;
   title: string;
   description: string;
@@ -8,6 +9,7 @@ export interface Card {
 }
 
 export interface List {
+  __typename?: 'List';
   id: string;
   title: string;
   order: number;
@@ -59,6 +61,22 @@ export interface BulkUpdateCardsInput {
 export interface BulkUpdateListsInput {
   lists: {
     id: string;
+    order: number;
+  }[];
+}
+
+export interface BulkUpdateInput {
+  lists: {
+    id: string;
+    title?: string;
+    order: number;
+  }[];
+  cards: {
+    id: string;
+    title?: string;
+    description?: string;
+    color?: string;
+    listId: string;
     order: number;
   }[];
 }
