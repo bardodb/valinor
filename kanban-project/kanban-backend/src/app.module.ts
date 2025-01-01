@@ -13,7 +13,7 @@ import { AppService } from './app.service';
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
       sortSchema: true,
-      playground: true,
+      playground: false,
       debug: true,
       introspection: true,
       buildSchemaOptions: {
