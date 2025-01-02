@@ -205,31 +205,32 @@ export class KanbanService {
   }
 
   async updateCard(input: UpdateCardInput): Promise<Card> {
-    // Skip update if no actual changes
-    if (!this.hasCardChanged(input.id, input)) {
-      const card = this.findCard(input.id);
-      if (!card) throw new Error('Card not found');
-      return card;
-    }
+    const card = this.findCard(input.id);
+    if (!card) throw new Error('Card not found');
 
     if (input.updateType === 'position') {
-      this.debouncedPositionUpdate(input.id, {
-        order: input.order,
-        listId: input.listId
-      });
+      const oldList = this.board.lists.find(l => l.id === card.listId);
+      const newList = this.board.lists.find(l => l.id === input.listId);
       
-      const card = this.findCard(input.id);
-      if (!card) throw new Error('Card not found');
-      return {
-        ...card,
-        order: input.order ?? card.order,
-        listId: input.listId ?? card.listId
-      };
+      if (input.listId && oldList && newList) {
+        // Remove card from old list
+        oldList.cards = oldList.cards.filter(c => c.id !== card.id);
+        // Update card
+        card.listId = input.listId;
+        card.order = input.order ?? card.order;
+        // Add to new list
+        newList.cards.push(card);
+      } else if (input.order !== undefined) {
+        card.order = input.order;
+      }
+    } else {
+      // Update content
+      if (input.title !== undefined) card.title = input.title;
+      if (input.description !== undefined) card.description = input.description;
+      if (input.color !== undefined) card.color = input.color;
     }
 
-    const updatedCard = await this.updateCardContent(input);
-    this.updateLastKnownState(input.id, updatedCard);
-    return updatedCard;
+    return card;
   }
 
   private findCard(cardId: string): Card | null {
@@ -241,22 +242,12 @@ export class KanbanService {
   }
 
   private updateCardContent(input: UpdateCardInput): Card {
-    let card: Card | undefined;
-    let list: List | undefined;
+    const card = this.findCard(input.id);
+    if (!card) throw new Error('Card not found');
 
-    for (const l of this.board.lists) {
-      card = l.cards.find(c => c.id === input.id);
-      if (card) {
-        list = l;
-        break;
-      }
-    }
-
-    if (!card || !list) throw new Error('Card not found');
-
-    if (input.title) card.title = input.title;
-    if (input.description) card.description = input.description;
-    if (input.color) card.color = input.color;
+    if (input.title !== undefined) card.title = input.title;
+    if (input.description !== undefined) card.description = input.description;
+    if (input.color !== undefined) card.color = input.color;
 
     return card;
   }
