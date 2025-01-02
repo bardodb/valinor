@@ -94,6 +94,9 @@ export class UpdateCardInput {
 
   @Field({ nullable: true })
   order?: number;
+
+  @Field(() => String, { nullable: true })
+  updateType?: 'content' | 'position';
 }
 
 @InputType()
@@ -113,11 +116,14 @@ export class BulkCardUpdate {
   @Field(() => ID)
   id: string;
 
-  @Field()
-  order: number;
+  @Field({ nullable: true })
+  order?: number;
 
   @Field({ nullable: true })
   listId?: string;
+
+  @Field(() => String, { nullable: true })
+  updateType?: 'content' | 'position';
 }
 
 @InputType()

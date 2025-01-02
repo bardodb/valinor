@@ -34,14 +34,17 @@
     "class-validator": "^0.14.1",
     "cors": "^2.8.5",
     "glob": "^11.0.0",
-    "graphql": "^16.9.0",
+    "graphql": "^16.10.0",
+    "graphql-subscriptions": "^2.0.0",
     "graphql-ws": "^5.16.0",
     "lru-cache": "^11.0.2",
     "pg": "^8.13.1",
     "reflect-metadata": "^0.2.0",
     "rimraf": "^6.0.1",
     "rxjs": "^7.8.1",
-    "typeorm": "^0.3.20"
+    "subscriptions-transport-ws": "^0.11.0",
+    "typeorm": "^0.3.20",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
